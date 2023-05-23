@@ -1,5 +1,6 @@
 const { Router } = require('express')
 const { ValidationError } = require('sequelize')
+const { requireAuthentication } = require('../lib/auth')
 
 const { Photo, PhotoClientFields } = require('../models/photo')
 
@@ -8,17 +9,40 @@ const router = Router()
 /*
  * Route to create a new photo.
  */
-router.post('/', async function (req, res, next) {
-  try {
-    const photo = await Photo.create(req.body, PhotoClientFields)
-    res.status(201).send({ id: photo.id })
-  } catch (e) {
-    if (e instanceof ValidationError) {
-      res.status(400).send({ error: e.message })
-    } else {
-      throw e
+router.post('/', requireAuthentication, async function (req, res, next) {
+  console.log("--req.user:", req.user)
+  console.log("--req.body.userId:", req.body.userId)
+  if(parseInt(req.user) != parseInt(req.body.userId)) {
+    res.status(403).send({
+    error: "Cannot access the photo"
+    })
+  }
+  else {
+    try {
+      const id = await Photo.create(req.body, PhotoClientFields)
+      res.status(201).send({
+        id: id,
+        links: {
+          photo: `/photos/${id}`,
+          business: `/businesses/${req.body.businessId}`
+        }
+      })
+    } catch (err) {
+      res.status(500).send({
+        error: "Cannot insert photo into the database"
+      })
     }
   }
+  // try {
+  //   const photo = await Photo.create(req.body, PhotoClientFields)
+  //   res.status(201).send({ id: photo.id })
+  // } catch (e) {
+  //   if (e instanceof ValidationError) {
+  //     res.status(400).send({ error: e.message })
+  //   } else {
+  //     throw e
+  //   }
+  // }
 })
 
 /*

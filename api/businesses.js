@@ -1,6 +1,7 @@
 const { Router } = require('express')
 const { ValidationError } = require('sequelize')
-
+const { generateAuthToken, requireAuthentication } = require('../lib/auth')
+const { validateAgainstSchema } = require('../lib/validation')
 const { Business, BusinessClientFields } = require('../models/business')
 const { Photo } = require('../models/photo')
 const { Review } = require('../models/review')
@@ -55,17 +56,39 @@ router.get('/', async function (req, res) {
 /*
  * Route to create a new business.
  */
-router.post('/', async function (req, res, next) {
-  try {
-    const business = await Business.create(req.body, BusinessClientFields)
-    res.status(201).send({ id: business.id })
-  } catch (e) {
-    if (e instanceof ValidationError) {
-      res.status(400).send({ error: e.message })
-    } else {
-      throw e
+router.post('/', requireAuthentication, async function (req, res, next) {
+  console.log("--req.user:", req.user)
+  console.log("--req.body.id:", req.body.ownerId)
+  if(parseInt(req.user) != parseInt(req.body.ownerId)) {
+    res.status(403).send({
+    error: "Cannot access the business"
+    })
+  }
+  else {
+    try {
+      const id = await Business.create(req.body, BusinessClientFields)
+      res.status(201).send({
+        ownerId: id,
+        links: {
+          business: `/businesses/${id}`
+        }
+      })
+    } catch (err) {
+      res.status(500).send({
+        error: "Cannot insert business into the database"
+      })
     }
   }
+  // try {
+  //   const business = await Business.create(req.body, BusinessClientFields)
+  //   res.status(201).send({ id: business.id })
+  // } catch (e) {
+  //   if (e instanceof ValidationError) {
+  //     res.status(400).send({ error: e.message })
+  //   } else {
+  //     throw e
+  //   }
+  // }
 })
 
 /*
